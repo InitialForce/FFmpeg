@@ -262,6 +262,7 @@ void av_log_set_callback(void (*callback)(void*, int, const char*, va_list));
  *        subsequent arguments are converted to output.
  * @param ap The arguments referenced by the format string.
  */
+void av_log_set_formatted_callback(void (*)(void*, int, const char*));
 void av_log_default_callback(void* ptr, int level, const char* fmt, va_list vl);
 
 /**
