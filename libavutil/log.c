@@ -280,6 +280,8 @@ static void (*av_log_callback)(void*, int, const char*, va_list) =
 
 static void (*av_log_formatted_callback)(void*, int, const char*) = NULL;
 
+static void (*av_log_formatted_filtered_callback)(void*, int, const char*) = NULL;
+
 void av_log(void* avcl, int level, const char *fmt, ...)
 {
     AVClass* avc = avcl ? *(AVClass **) avcl : NULL;
@@ -299,14 +301,19 @@ void av_vlog(void* avcl, int level, const char *fmt, va_list vl)
         log_callback(avcl, level, fmt, vl);
 
     void (*log_formatted_callback)(void (*)(void*, int, const char*) = av_log_formatted_callback;
+    void (*log_formatted_filtered_callback)(void (*)(void*, int, const char*) = av_log_formatted_filtered_callback;
 
-    if(log_formatted_callback) {
+    if(log_formatted_callback || (log_formatted_filtered_callback && level <= av_log_level)) {
         static int print_prefix = 1;
         char line[1024];
 
         av_log_format_line(avcl, level, fmt, vl, line, sizeof(line), &print_prefix);
 
-        log_formatted_callback(avcl, level, line);
+        if(log_formatted_callback)
+            log_formatted_callback(avcl, level, line);
+
+        if(log_formatted_filtered_callback && level <= av_log_level))
+            log_formatted_filtered_callback(avcl, level, line);
     }
 }
 
@@ -365,6 +372,11 @@ void avpriv_report_missing_feature(void *avc, const char *msg, ...)
 void av_log_set_formatted_callback(void (*callback)(void*, int, const char*))
 {
     av_log_formatted_callback = callback;
+}
+
+void av_log_set_formatted_filtered_callback(void (*callback)(void*, int, const char*))
+{
+    av_log_formatted_filtered_callback = callback;
 }
 
 
