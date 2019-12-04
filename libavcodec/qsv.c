@@ -328,16 +328,40 @@ load_plugin_fail:
 int ff_qsv_init_internal_session(AVCodecContext *avctx, mfxSession *session,
                                  const char *load_plugins)
 {
-    mfxIMPL impl   = MFX_IMPL_AUTO_ANY;
     mfxVersion ver = { { QSV_VERSION_MINOR, QSV_VERSION_MAJOR } };
 
     const char *desc;
     int ret;
 
+    // https://trac.ffmpeg.org/ticket/7933
+    // try d3d11
+    mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11;
     ret = MFXInit(impl, &ver, session);
+    if (ret >= 0)
+        av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with HARDWARE_ANY | VIA_D3D11\n");
+
+    if (ret < 0)
+    {
+        // try d3d9
+        impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9;
+        ret = MFXInit(impl, &ver, session);
+        if(ret >= 0)
+            av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with HARDWARE_ANY | VIA_D3D9\n");
+    }
+
+    // try any
+    if (ret < 0)
+    {
+        impl = MFX_IMPL_AUTO_ANY;
+        ret = MFXInit(impl, &ver, session);
+        if(ret >= 0)
+            av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with AUTO_ANY\n");
+    }
+
     if (ret < 0)
         return ff_qsv_print_error(avctx, ret,
                                   "Error initializing an internal MFX session");
+
 
     ret = qsv_load_plugins(*session, load_plugins, avctx);
     if (ret < 0) {
