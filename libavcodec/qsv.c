@@ -383,7 +383,9 @@ static int ff_qsv_set_display_handle(AVCodecContext *avctx, QSVSession *qs)
 int ff_qsv_init_internal_session(AVCodecContext *avctx, QSVSession *qs,
                                  const char *load_plugins, int gpu_copy)
 {
-    mfxIMPL          impl = MFX_IMPL_AUTO_ANY;
+    // https://trac.ffmpeg.org/ticket/7933
+    // try d3d11
+    mfxIMPL impl = MFX_IMPL_AUTO_ANY | MFX_IMPL_VIA_D3D11;
     mfxVersion        ver = { { QSV_VERSION_MINOR, QSV_VERSION_MAJOR } };
     mfxInitParam init_par = { MFX_IMPL_AUTO_ANY };
 
@@ -397,8 +399,29 @@ int ff_qsv_init_internal_session(AVCodecContext *avctx, QSVSession *qs,
     init_par.Version        = ver;
     ret = MFXInitEx(init_par, &qs->session);
     if (ret < 0)
+    {
+        // try d3d9
+        impl = MFX_IMPL_AUTO_ANY | MFX_IMPL_VIA_D3D9;
+        ret = MFXInit(impl, &ver, &qs->session);
+        av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with AUTO_ANY | VIA_D3D9\n");
+    }
+    else
+    {
+        av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with AUTO_ANY | VIA_D3D11\n");
+    }
+
+    // try any
+    if (ret < 0)
+    {
+        impl = MFX_IMPL_AUTO_ANY;
+        ret = MFXInit(impl, &ver, &qs->session);
+        av_log(avctx, AV_LOG_DEBUG, "MFX Initialized with AUTO_ANY\n");
+    }
+
+    if (ret < 0)
         return ff_qsv_print_error(avctx, ret,
                                   "Error initializing an internal MFX session");
+
 
 #ifdef AVCODEC_QSV_LINUX_SESSION_HANDLE
     ret = ff_qsv_set_display_handle(avctx, qs);
